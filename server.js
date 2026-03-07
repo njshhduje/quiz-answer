@@ -1,7 +1,6 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
-
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
@@ -14,41 +13,36 @@ let timerValue = 60;
 let timerInterval = null;
 
 io.on('connection', (socket) => {
-    // 接続時に現在の状態（ロック、タイマー）を送信
     socket.emit('init_state', { isLocked, timerValue });
 
     socket.on('join', (data) => {
-        const index = Object.keys(users).length; 
-        users[socket.id] = { name: data.name, index: index % 6 };
-        socket.emit('assigned', { index: users[socket.id].index });
+        const index = Object.keys(users).length % 6; 
+        users[socket.id] = { name: data.name, index: index };
+        socket.emit('assigned', { index: index });
         io.emit('update_users', users);
     });
 
     socket.on('draw', (data) => {
-        if (!isLocked) {
-            io.emit('render', { index: data.index, image: data.image });
-        }
+        if (!isLocked) io.emit('render', { index: data.index, image: data.image });
     });
 
-    // 管理者操作: ロック切替
     socket.on('set_lock', (locked) => {
         isLocked = locked;
         io.emit('lock_update', isLocked);
     });
 
-    // 管理者操作: タイマー
+    socket.on('clear_specific', (index) => {
+        io.emit('render', { index: parseInt(index), image: null });
+        io.emit('remote_clear', parseInt(index));
+    });
+
     socket.on('start_timer', (duration) => {
         clearInterval(timerInterval);
         timerValue = duration;
         io.emit('timer_update', timerValue);
-        
         timerInterval = setInterval(() => {
-            if (timerValue > 0) {
-                timerValue--;
-                io.emit('timer_update', timerValue);
-            } else {
-                clearInterval(timerInterval);
-            }
+            if (timerValue > 0) { timerValue--; io.emit('timer_update', timerValue); }
+            else { clearInterval(timerInterval); }
         }, 1000);
     });
 
