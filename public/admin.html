@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>管理者パネル</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 50px; background: #fdfdfd; }
+        .card { border: 2px solid #ccc; padding: 20px; margin: 20px auto; max-width: 400px; border-radius: 10px; background: white; }
+        button { padding: 15px 30px; font-size: 1.2rem; cursor: pointer; margin: 5px; }
+        .btn-lock { background: #f44336; color: white; }
+        .btn-unlock { background: #4CAF50; color: white; }
+    </style>
+</head>
+<body>
+    <h1>管理者コントロール</h1>
+    
+    <div class="card">
+        <h3>描画ロック</h3>
+        <button class="btn-lock" onclick="setLock(true)">全員ロック</button>
+        <button class="btn-unlock" onclick="setLock(false)">解除</button>
+    </div>
+
+    <div class="card">
+        <h3>タイマー</h3>
+        <input type="number" id="sec" value="60" style="font-size: 1.5rem; width: 80px;"> 秒<br><br>
+        <button onclick="start()">スタート</button>
+        <button onclick="reset()">リセット</button>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        function setLock(s) { socket.emit('set_lock', s); }
+        function start() { socket.emit('start_timer', document.getElementById('sec').value); }
+        function reset() { socket.emit('reset_timer', document.getElementById('sec').value); }
+    </script>
+</body>
+</html>
