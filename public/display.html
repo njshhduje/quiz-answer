@@ -2,20 +2,20 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>回答表示</title>
+    <title>回答一覧モニター</title>
     <style>
-        body { margin: 0; background: #222; color: white; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; }
-        header { padding: 10px; display: flex; justify-content: space-between; align-items: center; background: #333; }
-        #timer { font-size: 3rem; color: #ffeb3b; }
-        #grid { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); gap: 10px; flex-grow: 1; padding: 10px; }
-        .card { background: white; border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; border: 3px solid #555; }
-        .name-tag { background: #555; color: white; text-align: center; padding: 5px; font-size: 1.5rem; height: 40px; }
-        .ans-img { flex-grow: 1; width: 100%; object-fit: contain; background: white; }
+        body { margin: 0; background: #1a1a1a; color: white; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; }
+        header { padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; background: #333; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        #timer { font-size: 4rem; color: #ffeb3b; font-family: monospace; }
+        #grid { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); gap: 15px; flex-grow: 1; padding: 20px; }
+        .card { background: white; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; border: 4px solid #444; }
+        .name-tag { background: #444; color: white; text-align: center; padding: 10px; font-size: 1.8rem; font-weight: bold; }
+        .ans-img { flex-grow: 1; width: 100%; object-fit: contain; background: #fff; }
     </style>
 </head>
 <body>
     <header>
-        <div style="font-size: 1.5rem;">クイズ回答一覧</div>
+        <div style="font-size: 2rem; font-weight: bold;">QUIZ ANSWER BOARD</div>
         <div id="timer">60</div>
     </header>
     <div id="grid"></div>
@@ -25,15 +25,13 @@
         const socket = io();
         const grid = document.getElementById('grid');
         for(let i=0; i<6; i++) {
-            grid.innerHTML += `<div class="card"><div class="name-tag" id="n-${i}">待機中</div><img id="i-${i}" class="ans-img"></div>`;
+            grid.innerHTML += `<div class="card"><div class="name-tag" id="n-${i}">${i+1}番: 待機中</div><img id="i-${i}" class="ans-img"></div>`;
         }
         socket.on('update_users', users => {
-            Object.values(users).forEach(u => document.getElementById(`n-${u.index}`).innerText = u.name);
+            Object.values(users).forEach(u => document.getElementById(`n-${u.index}`).innerText = `${u.index+1}: ${u.name}`);
         });
-        socket.on('render', data => {
-            document.getElementById(`i-${data.index}`).src = data.image;
-        });
-        socket.on('timer_update', time => document.getElementById('timer').innerText = time);
+        socket.on('render', data => { document.getElementById(`i-${data.index}`).src = data.image ? data.image : ""; });
+        socket.on('timer_update', t => document.getElementById('timer').innerText = t);
     </script>
 </body>
 </html>
