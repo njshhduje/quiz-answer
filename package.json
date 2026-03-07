@@ -1,16 +1,10 @@
 {
-  "name": "quiz-drawing-app",
+  "name": "quiz-drawing-sync",
   "version": "1.0.0",
-  "description": "Real-time quiz drawing board with Socket.io",
   "main": "server.js",
-  "scripts": {
-    "start": "node server.js"
-  },
+  "scripts": { "start": "node server.js" },
   "dependencies": {
     "express": "^4.18.2",
     "socket.io": "^4.7.2"
-  },
-  "engines": {
-    "node": ">=14.0.0"
   }
 }
