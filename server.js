@@ -9,11 +9,12 @@ app.use(express.static('public'));
 
 let users = {}; 
 let isLocked = false;
+let isVisible = false;
 let timerValue = 60;
 let timerInterval = null;
 
 io.on('connection', (socket) => {
-    socket.emit('init_state', { isLocked, timerValue });
+    socket.emit('init_state', { isLocked, isVisible, timerValue });
 
     socket.on('join', (data) => {
         const index = Object.keys(users).length % 6; 
@@ -31,9 +32,21 @@ io.on('connection', (socket) => {
         io.emit('lock_update', isLocked);
     });
 
+    socket.on('set_visibility', (visible) => {
+        isVisible = visible;
+        io.emit('visibility_update', isVisible);
+    });
+
     socket.on('clear_specific', (index) => {
         io.emit('render', { index: parseInt(index), image: null });
         io.emit('remote_clear', parseInt(index));
+    });
+
+    socket.on('clear_all', () => {
+        for(let i=0; i<6; i++) {
+            io.emit('render', { index: i, image: null });
+            io.emit('remote_clear', i);
+        }
     });
 
     socket.on('start_timer', (duration) => {
@@ -44,12 +57,6 @@ io.on('connection', (socket) => {
             if (timerValue > 0) { timerValue--; io.emit('timer_update', timerValue); }
             else { clearInterval(timerInterval); }
         }, 1000);
-    });
-
-    socket.on('reset_timer', (duration) => {
-        clearInterval(timerInterval);
-        timerValue = duration;
-        io.emit('timer_update', timerValue);
     });
 
     socket.on('disconnect', () => {
