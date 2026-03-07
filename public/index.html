@@ -7,27 +7,27 @@
     <style>
         body { font-family: sans-serif; margin: 0; background: #f0f0f0; overflow: hidden; display: flex; flex-direction: column; height: 100vh; }
         #login-screen { position: fixed; inset: 0; background: white; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
-        .toolbar { display: flex; gap: 5px; padding: 10px; background: #333; color: white; }
-        canvas { background: white; touch-action: none; flex-grow: 1; cursor: crosshair; }
-        #lock-overlay { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.5); z-index: 10; color: white; justify-content: center; align-items: center; font-size: 2rem; }
-        #timer-box { margin-left: auto; font-weight: bold; color: #ffeb3b; font-size: 1.2rem; }
+        .toolbar { display: flex; gap: 5px; padding: 10px; background: #333; color: white; align-items: center; }
+        canvas { background: white; touch-action: none; flex-grow: 1; }
+        #lock-overlay { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.6); z-index: 10; color: white; justify-content: center; align-items: center; font-size: 2rem; font-weight: bold; }
+        #timer-box { margin-left: auto; font-weight: bold; color: #ffeb3b; font-size: 1.4rem; border: 1px solid #ffeb3b; padding: 2px 8px; }
+        button { padding: 8px 12px; cursor: pointer; border-radius: 4px; border: none; font-weight: bold; }
+        input { padding: 10px; font-size: 1.2rem; margin-bottom: 10px; }
     </style>
 </head>
 <body>
     <div id="login-screen">
-        <h2>クイズ参加</h2>
+        <h2>クイズ回答者登録</h2>
         <input type="text" id="userName" placeholder="名前を入力">
-        <button onclick="join()">参加</button>
+        <button onclick="join()" style="background:#4CAF50; color:white;">参加する</button>
     </div>
-
-    <div id="lock-overlay">書き込み禁止中</div>
-
+    <div id="lock-overlay">回答締め切り（ロック中）</div>
     <div class="toolbar">
-        <button onclick="setMode('brush')">筆</button>
-        <button onclick="setMode('eraser')">消しゴム</button>
-        <button onclick="clearCanvas()">全部消す</button>
-        <button onclick="undo()">戻る</button>
-        <span id="display-name"></span>
+        <button onclick="setMode('brush')" style="background:#eee;">筆</button>
+        <button onclick="setMode('eraser')" style="background:#eee;">消しゴム</button>
+        <button onclick="clearCanvas()" style="background:#f44336; color:white;">全消去</button>
+        <button onclick="undo()" style="background:#607d8b; color:white;">戻る</button>
+        <span id="display-name" style="margin-left:10px;"></span>
         <div id="timer-box">60</div>
     </div>
     <canvas id="canvas"></canvas>
@@ -35,50 +35,55 @@
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
-        let myIndex = null, mode = 'brush', isLocked = false, drawing = false;
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
+        let myIndex = null, mode = 'brush', isLocked = false, drawing = false, history = [], step = -1;
+        const canvas = document.getElementById('canvas'), ctx = canvas.getContext('2d');
 
         function join() {
             const name = document.getElementById('userName').value;
             if(!name) return;
             socket.emit('join', { name });
             document.getElementById('login-screen').style.display = 'none';
-            document.getElementById('display-name').innerText = " : " + name;
+            document.getElementById('display-name').innerText = name;
             initCanvas();
         }
 
         function initCanvas() {
             canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight - 50;
+            canvas.height = window.innerHeight - 60;
             ctx.lineWidth = 5; ctx.lineCap = 'round';
-
-            const start = (e) => { if(isLocked) return; drawing = true; draw(e); };
-            const move = (e) => {
-                if(!drawing || isLocked) return;
+            const getPos = e => {
                 const rect = canvas.getBoundingClientRect();
-                const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
-                const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
-                ctx.globalCompositeOperation = mode === 'eraser' ? 'destination-out' : 'source-over';
-                ctx.strokeStyle = '#000'; ctx.lineWidth = mode === 'eraser' ? 30 : 5;
-                ctx.lineTo(x, y); ctx.stroke(); ctx.beginPath(); ctx.moveTo(x, y);
+                return { x: (e.touches ? e.touches[0].clientX : e.clientX) - rect.left, y: (e.touches ? e.touches[0].clientY : e.clientY) - rect.top };
             };
-            const stop = () => { drawing = false; ctx.beginPath(); socket.emit('draw', { index: myIndex, image: canvas.toDataURL() }); };
-
+            const start = e => { if(isLocked) return; drawing = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); };
+            const move = e => {
+                if(!drawing || isLocked) return;
+                const p = getPos(e);
+                ctx.globalCompositeOperation = mode === 'eraser' ? 'destination-out' : 'source-over';
+                ctx.strokeStyle = '#000'; ctx.lineWidth = mode === 'eraser' ? 40 : 5;
+                ctx.lineTo(p.x, p.y); ctx.stroke();
+            };
+            const stop = () => { if(!drawing) return; drawing = false; saveHistory(); sync(); };
             canvas.addEventListener('mousedown', start); canvas.addEventListener('touchstart', start);
             canvas.addEventListener('mousemove', move); canvas.addEventListener('touchmove', move);
             window.addEventListener('mouseup', stop); window.addEventListener('touchend', stop);
+            saveHistory();
         }
 
         function setMode(m) { mode = m; }
-        function clearCanvas() { if(isLocked) return; ctx.clearRect(0,0,canvas.width,canvas.height); socket.emit('draw', { index: myIndex, image: canvas.toDataURL() }); }
-        
+        function clearCanvas() { if(isLocked) return; ctx.clearRect(0,0,canvas.width,canvas.height); saveHistory(); sync(); }
+        function saveHistory() { step++; if(step < history.length) history.length = step; history.push(canvas.toDataURL()); }
+        function undo() {
+            if (isLocked || step <= 0) return;
+            step--; let img = new Image(); img.src = history[step];
+            img.onload = () => { ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(img,0,0); sync(); };
+        }
+        function sync() { socket.emit('draw', { index: myIndex, image: canvas.toDataURL() }); }
+
         socket.on('assigned', data => myIndex = data.index);
-        socket.on('lock_update', locked => {
-            isLocked = locked;
-            document.getElementById('lock-overlay').style.display = locked ? 'flex' : 'none';
-        });
-        socket.on('timer_update', time => document.getElementById('timer-box').innerText = time);
+        socket.on('lock_update', locked => { isLocked = locked; document.getElementById('lock-overlay').style.display = locked ? 'flex' : 'none'; });
+        socket.on('timer_update', t => document.getElementById('timer-box').innerText = t);
+        socket.on('remote_clear', idx => { if(myIndex === idx) { ctx.clearRect(0,0,canvas.width,canvas.height); history=[canvas.toDataURL()]; step=0; sync(); } });
     </script>
 </body>
 </html>
