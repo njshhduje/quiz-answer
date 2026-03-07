@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>回答ボード</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; background: #f0f0f0; overflow: hidden; display: flex; flex-direction: column; height: 100vh; }
+        #login-screen { position: fixed; inset: 0; background: white; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
+        .toolbar { display: flex; gap: 5px; padding: 10px; background: #333; color: white; }
+        canvas { background: white; touch-action: none; flex-grow: 1; cursor: crosshair; }
+        #lock-overlay { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.5); z-index: 10; color: white; justify-content: center; align-items: center; font-size: 2rem; }
+        #timer-box { margin-left: auto; font-weight: bold; color: #ffeb3b; font-size: 1.2rem; }
+    </style>
+</head>
+<body>
+    <div id="login-screen">
+        <h2>クイズ参加</h2>
+        <input type="text" id="userName" placeholder="名前を入力">
+        <button onclick="join()">参加</button>
+    </div>
+
+    <div id="lock-overlay">書き込み禁止中</div>
+
+    <div class="toolbar">
+        <button onclick="setMode('brush')">筆</button>
+        <button onclick="setMode('eraser')">消しゴム</button>
+        <button onclick="clearCanvas()">全部消す</button>
+        <button onclick="undo()">戻る</button>
+        <span id="display-name"></span>
+        <div id="timer-box">60</div>
+    </div>
+    <canvas id="canvas"></canvas>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let myIndex = null, mode = 'brush', isLocked = false, drawing = false;
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        function join() {
+            const name = document.getElementById('userName').value;
+            if(!name) return;
+            socket.emit('join', { name });
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('display-name').innerText = " : " + name;
+            initCanvas();
+        }
+
+        function initCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight - 50;
+            ctx.lineWidth = 5; ctx.lineCap = 'round';
+
+            const start = (e) => { if(isLocked) return; drawing = true; draw(e); };
+            const move = (e) => {
+                if(!drawing || isLocked) return;
+                const rect = canvas.getBoundingClientRect();
+                const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+                const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+                ctx.globalCompositeOperation = mode === 'eraser' ? 'destination-out' : 'source-over';
+                ctx.strokeStyle = '#000'; ctx.lineWidth = mode === 'eraser' ? 30 : 5;
+                ctx.lineTo(x, y); ctx.stroke(); ctx.beginPath(); ctx.moveTo(x, y);
+            };
+            const stop = () => { drawing = false; ctx.beginPath(); socket.emit('draw', { index: myIndex, image: canvas.toDataURL() }); };
+
+            canvas.addEventListener('mousedown', start); canvas.addEventListener('touchstart', start);
+            canvas.addEventListener('mousemove', move); canvas.addEventListener('touchmove', move);
+            window.addEventListener('mouseup', stop); window.addEventListener('touchend', stop);
+        }
+
+        function setMode(m) { mode = m; }
+        function clearCanvas() { if(isLocked) return; ctx.clearRect(0,0,canvas.width,canvas.height); socket.emit('draw', { index: myIndex, image: canvas.toDataURL() }); }
+        
+        socket.on('assigned', data => myIndex = data.index);
+        socket.on('lock_update', locked => {
+            isLocked = locked;
+            document.getElementById('lock-overlay').style.display = locked ? 'flex' : 'none';
+        });
+        socket.on('timer_update', time => document.getElementById('timer-box').innerText = time);
+    </script>
+</body>
+</html>
