@@ -2,29 +2,44 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>管理者パネル</title>
+    <title>管理者コントロール</title>
     <style>
-        body { font-family: sans-serif; text-align: center; padding: 50px; background: #fdfdfd; }
-        .card { border: 2px solid #ccc; padding: 20px; margin: 20px auto; max-width: 400px; border-radius: 10px; background: white; }
-        button { padding: 15px 30px; font-size: 1.2rem; cursor: pointer; margin: 5px; }
+        body { font-family: sans-serif; text-align: center; padding: 20px; background: #f5f5f5; }
+        .card { border: 1px solid #ddd; padding: 20px; margin: 10px auto; max-width: 500px; border-radius: 15px; background: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        button { padding: 15px 25px; font-size: 1rem; cursor: pointer; margin: 5px; border: none; border-radius: 8px; font-weight: bold; }
         .btn-lock { background: #f44336; color: white; }
         .btn-unlock { background: #4CAF50; color: white; }
+        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .btn-clear { background: #ff9800; color: white; padding: 10px; }
+        input { padding: 10px; font-size: 1.2rem; width: 80px; text-align: center; }
     </style>
 </head>
 <body>
-    <h1>管理者コントロール</h1>
+    <h1>Quiz Admin Panel</h1>
     
     <div class="card">
-        <h3>描画ロック</h3>
+        <h3>1. 描画制限（一斉ロック）</h3>
         <button class="btn-lock" onclick="setLock(true)">全員ロック</button>
-        <button class="btn-unlock" onclick="setLock(false)">解除</button>
+        <button class="btn-unlock" onclick="setLock(false)">ロック解除</button>
     </div>
 
     <div class="card">
-        <h3>タイマー</h3>
-        <input type="number" id="sec" value="60" style="font-size: 1.5rem; width: 80px;"> 秒<br><br>
-        <button onclick="start()">スタート</button>
+        <h3>2. タイマー設定</h3>
+        <input type="number" id="sec" value="60"> 秒<br><br>
+        <button onclick="start()" style="background:#2196F3; color:white;">カウントダウン開始</button>
         <button onclick="reset()">リセット</button>
+    </div>
+
+    <div class="card">
+        <h3>3. 特定のボードを消去</h3>
+        <div class="grid">
+            <button class="btn-clear" onclick="clearBoard(0)">1番消去</button>
+            <button class="btn-clear" onclick="clearBoard(1)">2番消去</button>
+            <button class="btn-clear" onclick="clearBoard(2)">3番消去</button>
+            <button class="btn-clear" onclick="clearBoard(3)">4番消去</button>
+            <button class="btn-clear" onclick="clearBoard(4)">5番消去</button>
+            <button class="btn-clear" onclick="clearBoard(5)">6番消去</button>
+        </div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
@@ -33,6 +48,7 @@
         function setLock(s) { socket.emit('set_lock', s); }
         function start() { socket.emit('start_timer', document.getElementById('sec').value); }
         function reset() { socket.emit('reset_timer', document.getElementById('sec').value); }
+        function clearBoard(idx) { if(confirm(`${idx+1}番を消去しますか？`)) socket.emit('clear_specific', idx); }
     </script>
 </body>
 </html>
