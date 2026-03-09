@@ -3,28 +3,52 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>回答者</title>
+    <title>回答者 - QUIZ</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@700&display=swap" rel="stylesheet">
     <style>
-        body { margin: 0; background: #f0f0f0; overflow: hidden; display: flex; flex-direction: column; height: 100vh; font-family: sans-serif; }
-        #login { position: fixed; inset: 0; background: white; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
-        .toolbar { display: flex; gap: 5px; padding: 10px; background: #333; color: white; align-items: center; }
-        canvas { background: white; touch-action: none; flex-grow: 1; }
-        #lock-overlay { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.7); z-index: 50; color: white; justify-content: center; align-items: center; font-size: 2rem; }
+        :root { --primary: #4CAF50; --danger: #f44336; --dark: #333; --bg: #f8f9fa; }
+        body { margin: 0; background: var(--bg); font-family: 'Noto Sans JP', sans-serif; overflow: hidden; display: flex; flex-direction: column; height: 100vh; }
+        
+        #login { position: fixed; inset: 0; background: white; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; text-align: center; }
+        #login h2 { color: var(--dark); margin-bottom: 20px; }
+        #login input { width: 100%; max-width: 280px; padding: 15px; border: 2px solid #ddd; border-radius: 12px; font-size: 1.2rem; margin-bottom: 20px; outline: none; transition: 0.3s; }
+        #login input:focus { border-color: var(--primary); }
+        #login button { width: 100%; max-width: 310px; padding: 15px; background: var(--primary); color: white; border: none; border-radius: 12px; font-size: 1.2rem; font-weight: bold; cursor: pointer; box-shadow: 0 4px 0 #388E3C; }
+        #login button:active { transform: translateY(2px); box-shadow: 0 2px 0 #388E3C; }
+
+        .toolbar { background: var(--dark); padding: 10px; display: flex; gap: 8px; align-items: center; color: white; height: 60px; box-sizing: border-box; }
+        .btn-tool { flex: 1; height: 40px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; background: #eee; font-size: 0.9rem; transition: 0.2s; }
+        .btn-tool.active { background: var(--primary); color: white; }
+        .btn-clear { background: var(--danger); color: white; }
+        
+        #timer-box { font-size: 1.5rem; color: #ffeb3b; font-weight: bold; min-width: 45px; text-align: center; }
+
+        .canvas-area { flex-grow: 1; background: white; position: relative; }
+        canvas { touch-action: none; width: 100%; height: 100%; }
+
+        #lock-overlay { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.8); z-index: 50; color: white; flex-direction: column; justify-content: center; align-items: center; }
+        #lock-overlay span { font-size: 2rem; border: 4px solid white; padding: 10px 20px; transform: rotate(-5deg); font-weight: bold; }
     </style>
 </head>
 <body>
     <div id="login">
-        <input type="text" id="nameInput" placeholder="名前" style="font-size:1.2rem; padding:10px;">
-        <button onclick="join()" style="margin-top:10px; padding:10px 20px;">参加</button>
+        <h2>QUIZ 参加</h2>
+        <input type="text" id="nameInput" placeholder="お名前を入力">
+        <button onclick="join()">準備OK！</button>
     </div>
-    <div id="lock-overlay">回答終了</div>
+
+    <div id="lock-overlay"><span>THINKING TIME END</span></div>
+
     <div class="toolbar">
-        <button onclick="mode='brush'">筆</button>
-        <button onclick="mode='eraser'">消しゴム</button>
-        <button onclick="cls()">消去</button>
-        <div id="timer-box" style="margin-left:auto; color:#ffeb3b; font-weight:bold;">60</div>
+        <button id="btn-brush" class="btn-tool active" onclick="setMode('brush')">筆</button>
+        <button id="btn-eraser" class="btn-tool" onclick="setMode('eraser')">消ゴム</button>
+        <button class="btn-tool btn-clear" onclick="cls()">全消去</button>
+        <div id="timer-box">60</div>
     </div>
-    <canvas id="canvas"></canvas>
+
+    <div class="canvas-area">
+        <canvas id="canvas"></canvas>
+    </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
@@ -41,7 +65,9 @@
         }
 
         function init() {
-            canvas.width = window.innerWidth; canvas.height = window.innerHeight - 50;
+            const container = document.querySelector('.canvas-area');
+            canvas.width = container.offsetWidth;
+            canvas.height = container.offsetHeight;
             ctx.lineWidth = 5; ctx.lineCap = 'round';
             
             const start = e => { if(isLocked || myIndex === null) return; drawing = true; ctx.beginPath(); };
@@ -51,18 +77,21 @@
                 const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
                 const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
                 ctx.globalCompositeOperation = mode === 'eraser' ? 'destination-out' : 'source-over';
-                ctx.strokeStyle = '#000'; ctx.lineWidth = mode === 'eraser' ? 40 : 5;
+                ctx.strokeStyle = '#000'; ctx.lineWidth = mode === 'eraser' ? 50 : 6;
                 ctx.lineTo(x, y); ctx.stroke();
             };
-            const stop = () => { 
-                if(!drawing) return; drawing = false; 
-                socket.emit('draw', { index: myIndex, image: canvas.toDataURL() }); 
-            };
+            const stop = () => { if(!drawing) return; drawing = false; socket.emit('draw', { index: myIndex, image: canvas.toDataURL() }); };
 
             canvas.addEventListener('touchstart', start); canvas.addEventListener('touchmove', move);
             window.addEventListener('touchend', stop);
             canvas.addEventListener('mousedown', start); canvas.addEventListener('mousemove', move);
             window.addEventListener('mouseup', stop);
+        }
+
+        function setMode(m) {
+            mode = m;
+            document.getElementById('btn-brush').classList.toggle('active', m==='brush');
+            document.getElementById('btn-eraser').classList.toggle('active', m==='eraser');
         }
 
         function cls() { ctx.clearRect(0,0,canvas.width,canvas.height); socket.emit('draw', { index: myIndex, image: canvas.toDataURL() }); }
