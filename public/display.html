@@ -2,56 +2,195 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>QUIZ MONITOR</title>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@900&display=swap" rel="stylesheet">
+    <title>QUIZ MONITOR - PREMIUM</title>
+    <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Noto+Sans+JP:wght@900&display=swap" rel="stylesheet">
     <style>
-        :root { --gold: #ffeb3b; --red: #ff3d00; --blue: #2979ff; --panel: #333; }
-        body { margin: 0; background: #121212; font-family: 'Noto Sans JP', sans-serif; height: 100vh; display: flex; flex-direction: column; color: white; }
-        
-        header { height: 100px; background: linear-gradient(180deg, #444, #222); display: flex; justify-content: space-between; align-items: center; padding: 0 50px; border-bottom: 5px solid var(--gold); box-shadow: 0 5px 20px rgba(0,0,0,0.5); }
-        .logo { font-size: 3rem; font-style: italic; text-shadow: 3px 3px 0px #000; }
-        #timer { font-size: 5rem; color: var(--gold); text-shadow: 0 0 15px rgba(255,235,59,0.5); font-family: 'Courier New', monospace; }
+        :root {
+            --bg-color: #0f0c29;
+            --card-bg: rgba(255, 255, 255, 0.95);
+            --accent-gold: #ffdf00;
+            --correct-red: #ff3d00;
+            --incorrect-blue: #00e5ff;
+            --text-main: #ffffff;
+        }
 
-        #grid { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); gap: 20px; flex-grow: 1; padding: 25px; box-sizing: border-box; }
-        
-        .card { background: #fff; border-radius: 20px; position: relative; display: flex; flex-direction: column; border: 8px solid #444; box-shadow: 0 10px 0px #000; transition: transform 0.2s; overflow: hidden; }
-        .card.correct { border-color: var(--red); box-shadow: 0 10px 0px #b21a00; transform: scale(1.02); }
-        .card.incorrect { border-color: var(--blue); box-shadow: 0 10px 0px #004ecb; }
+        body {
+            margin: 0;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            font-family: 'Noto Sans JP', sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            color: var(--text-main);
+        }
 
-        .name-banner { background: #444; color: white; text-align: center; padding: 10px; font-size: 2rem; border-bottom: 4px solid #333; }
-        .correct .name-banner { background: var(--red); }
-        .incorrect .name-banner { background: var(--blue); }
+        /* ヘッダーデザイン */
+        header {
+            height: 110px;
+            padding: 0 60px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(10px);
+            border-bottom: 4px solid var(--accent-gold);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+        }
 
-        .image-container { flex-grow: 1; position: relative; background: #fff; display: flex; justify-content: center; align-items: center; }
-        .img-layer { max-width: 95%; max-height: 95%; object-fit: contain; z-index: 1; }
-        
-        .mask { position: absolute; inset: 0; background: radial-gradient(circle, #666, #222); color: #888; display: flex; justify-content: center; align-items: center; font-size: 8rem; z-index: 10; font-weight: 100; transition: 0.5s; }
-        .hidden { opacity: 0; visibility: hidden; transform: scale(1.5); }
+        .title-logo {
+            font-family: 'Archivo Black', sans-serif;
+            font-size: 3.5rem;
+            background: linear-gradient(to bottom, #fff 40%, var(--accent-gold) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(2px 4px 6px rgba(0,0,0,0.5));
+        }
 
-        .mark-overlay { position: absolute; inset: 0; display: flex; justify-content: center; align-items: center; font-size: 18rem; z-index: 20; opacity: 0; pointer-events: none; transition: 0.3s; }
-        .correct .mark-overlay { opacity: 0.9; color: var(--red); }
-        .incorrect .mark-overlay { opacity: 0.9; color: var(--blue); }
+        #timer {
+            font-family: 'Archivo Black', sans-serif;
+            font-size: 6rem;
+            color: var(--accent-gold);
+            text-shadow: 0 0 20px rgba(255, 223, 0, 0.6);
+        }
+
+        /* グリッドレイアウト */
+        #grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(2, 1fr);
+            gap: 30px;
+            flex-grow: 1;
+            padding: 40px;
+            box-sizing: border-box;
+        }
+
+        /* ボード（カード）のデザイン */
+        .card {
+            background: var(--card-bg);
+            border-radius: 25px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            border: 6px solid #444;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            overflow: hidden;
+        }
+
+        /* 正解・不正解時の演出 */
+        .card.correct {
+            border-color: var(--correct-red);
+            box-shadow: 0 0 50px rgba(255, 61, 0, 0.5);
+            transform: scale(1.05) translateY(-10px);
+            z-index: 5;
+        }
+
+        .card.incorrect {
+            border-color: var(--incorrect-blue);
+            box-shadow: 0 0 50px rgba(0, 229, 255, 0.4);
+            filter: grayscale(0.5) brightness(0.8);
+        }
+
+        /* 番号と名前のラベル */
+        .name-label {
+            background: #222;
+            color: white;
+            padding: 12px;
+            font-size: 2.2rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            border-bottom: 2px solid rgba(0,0,0,0.1);
+        }
+        .name-label .num {
+            color: var(--accent-gold);
+            font-family: 'Archivo Black', sans-serif;
+        }
+
+        .correct .name-label { background: var(--correct-red); }
+        .incorrect .name-label { background: var(--incorrect-blue); color: #000; }
+
+        /* 回答エリア */
+        .canvas-wrap {
+            flex-grow: 1;
+            position: relative;
+            background: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .img-data {
+            max-width: 90%;
+            max-height: 90%;
+            object-fit: contain;
+            transition: transform 0.3s;
+        }
+
+        /* 隠しマスク */
+        .mask {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(45deg, #1a1a1a, #444);
+            color: rgba(255,255,255,0.1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 10rem;
+            z-index: 10;
+            transition: 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .mask.hidden {
+            transform: translateY(-100%);
+            opacity: 0;
+        }
+
+        /* ◯✕マーク */
+        .judge-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 22rem;
+            z-index: 20;
+            pointer-events: none;
+            opacity: 0;
+            transform: scale(0.5);
+            transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .correct .judge-overlay.maru { opacity: 0.95; color: var(--correct-red); transform: scale(1); }
+        .incorrect .judge-overlay.batsu { opacity: 0.95; color: var(--incorrect-blue); transform: scale(1); }
     </style>
 </head>
 <body>
+
     <header>
-        <div class="logo">QUIZ CHAMPION</div>
+        <div class="title-logo">ULTIMATE QUIZ</div>
         <div id="timer">60</div>
     </header>
+
     <div id="grid"></div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
         const grid = document.getElementById('grid');
+
+        // ボード生成
         for(let i=0; i<6; i++) {
             grid.innerHTML += `
                 <div class="card" id="card-${i}">
-                    <div class="name-banner" id="n-${i}">${i+1}: WAITING...</div>
-                    <div class="image-container">
+                    <div class="name-label">
+                        <span class="num">${i+1}</span>
+                        <span id="n-${i}">WAITING...</span>
+                    </div>
+                    <div class="canvas-wrap">
                         <div class="mask" id="m-${i}">?</div>
-                        <div class="mark-overlay" id="mark-${i}"></div>
-                        <img id="i-${i}" class="img-layer">
+                        <div class="judge-overlay maru">◯</div>
+                        <div class="judge-overlay batsu">✕</div>
+                        <img id="i-${i}" class="img-data">
                     </div>
                 </div>`;
         }
@@ -63,30 +202,37 @@
 
         socket.on('update_users', u => {
             Object.values(u).forEach(user => {
-                const tag = document.getElementById(`n-${user.index}`);
-                if(tag) tag.innerText = user.name;
+                const nameTag = document.getElementById(`n-${user.index}`);
+                if(nameTag) nameTag.innerText = user.name.toUpperCase();
             });
         });
 
         socket.on('visibility_update', v => {
-            for(let i=0; i<6; i++) document.getElementById(`m-${i}`).className = v ? 'mask hidden' : 'mask';
+            for(let i=0; i<6; i++) {
+                document.getElementById(`m-${i}`).classList.toggle('hidden', v);
+            }
         });
 
         socket.on('judge_results', res => {
             res.forEach((r, i) => {
                 const card = document.getElementById(`card-${i}`);
-                const mark = document.getElementById(`mark-${i}`);
-                card.className = 'card'; mark.innerText = '';
-                if(r === true) { card.classList.add('correct'); mark.innerText = '◯'; }
-                if(r === false) { card.classList.add('incorrect'); mark.innerText = '✕'; }
+                card.classList.remove('correct', 'incorrect');
+                if(r === true) card.classList.add('correct');
+                if(r === false) card.classList.add('incorrect');
             });
         });
 
-        socket.on('timer_update', t => document.getElementById('timer').innerText = t);
+        socket.on('timer_update', t => {
+            const timerEl = document.getElementById('timer');
+            timerEl.innerText = t;
+            // 残り10秒で赤く光らせる演出
+            timerEl.style.color = t <= 10 ? '#ff3d00' : '#ffdf00';
+        });
+
         socket.on('remote_clear_all', () => {
             for(let i=0; i<6; i++) {
                 document.getElementById(`i-${i}`).src = "";
-                document.getElementById(`card-${i}`).className = 'card';
+                document.getElementById(`card-${i}`).classList.remove('correct', 'incorrect');
             }
         });
     </script>
