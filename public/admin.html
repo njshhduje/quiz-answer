@@ -2,59 +2,131 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>管理者パネル</title>
+    <title>QUIZ ADMIN - 進行管理</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: sans-serif; text-align: center; background: #f0f2f5; padding: 20px; }
-        .panel { background: white; border-radius: 12px; padding: 20px; margin: 10px auto; max-width: 600px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        button { padding: 12px 20px; margin: 5px; cursor: pointer; border: none; border-radius: 6px; font-weight: bold; }
-        .btn-main { background: #673ab7; color: white; width: 90%; font-size: 1.2rem; }
-        .judge-box { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 15px 0; }
-        .check-item { background: #eee; padding: 10px; border-radius: 8px; }
+        :root {
+            --primary: #673ab7;
+            --secondary: #2196F3;
+            --success: #4CAF50;
+            --danger: #f44336;
+            --warning: #ffeb3b;
+            --dark: #2c3e50;
+        }
+        body { font-family: 'Noto Sans JP', sans-serif; background: #eaeff2; margin: 0; padding: 20px; color: var(--dark); }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1 { text-align: center; color: var(--dark); font-size: 1.8rem; margin-bottom: 25px; border-bottom: 3px solid var(--primary); display: inline-block; width: 100%; padding-bottom: 10px; }
+
+        .section { background: white; border-radius: 16px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .section-title { font-size: 1.1rem; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; color: var(--primary); }
+        .section-title::before { content: ""; width: 5px; height: 1.2rem; background: var(--primary); display: inline-block; border-radius: 10px; }
+
+        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        button { padding: 15px; font-size: 1rem; font-weight: bold; border: none; border-radius: 10px; cursor: pointer; transition: 0.2s; color: white; }
+        button:active { transform: scale(0.97); opacity: 0.9; }
+
+        /* カラーバリエーション */
+        .btn-open { background: var(--primary); grid-column: span 2; font-size: 1.4rem; padding: 20px; margin-bottom: 10px; }
+        .btn-lock { background: var(--danger); }
+        .btn-unlock { background: var(--success); }
+        .btn-timer { background: var(--secondary); }
+        .btn-reset { background: #78909c; }
+        .btn-clear { background: #333; grid-column: span 2; margin-top: 10px; }
+
+        /* 判定エリア */
+        .judge-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 15px; }
+        .judge-item { background: #f8f9fa; border: 2px solid #eee; border-radius: 12px; padding: 15px; display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: 0.2s; }
+        .judge-item:has(input:checked) { border-color: var(--danger); background: #fff5f5; }
+        .judge-item span { font-size: 1.2rem; margin-bottom: 5px; }
+        .judge-item input { width: 25px; height: 25px; cursor: pointer; }
+
+        /* タイマー入力 */
+        .timer-input-wrap { display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 15px; }
+        input[type="number"] { width: 100px; padding: 12px; font-size: 1.5rem; text-align: center; border: 2px solid #ddd; border-radius: 10px; font-weight: bold; }
     </style>
 </head>
 <body>
-    <div class="panel">
-        <h3>1. 進行コントロール</h3>
-        <button class="btn-main" onclick="socket.emit('set_visibility', true)">一斉オープン！</button>
-        <button onclick="socket.emit('set_visibility', false)">隠す & ロック解除</button>
-        <hr>
-        <button onclick="socket.emit('set_lock', true)" style="background:#f44336; color:white;">手動ロック</button>
-        <button onclick="socket.emit('set_lock', false)" style="background:#4CAF50; color:white;">手動解除</button>
+
+<div class="container">
+    <h1>QUIZ CONTROL PANEL</h1>
+
+    <div class="section">
+        <div class="section-title">ステージ進行</div>
+        <div class="btn-grid">
+            <button class="btn-open" onclick="socket.emit('set_visibility', true)">🚀 一斉オープン！</button>
+            <button class="btn-unlock" onclick="socket.emit('set_visibility', false)">🙈 隠す & ロック解除</button>
+            <button class="btn-lock" onclick="socket.emit('set_lock', true)">🔒 手動ロック</button>
+        </div>
     </div>
 
-    <div class="panel">
-        <h3>2. タイマー</h3>
-        <input type="number" id="sec" value="60" style="font-size:1.5rem; width:80px;"> 秒
-        <button onclick="socket.emit('start_timer', document.getElementById('sec').value)" style="background:#2196F3; color:white;">スタート</button>
-        <button onclick="socket.emit('reset_timer', document.getElementById('sec').value)" style="background:#757575; color:white;">リセット</button>
+    <div class="section">
+        <div class="section-title">タイマー</div>
+        <div class="timer-input-wrap">
+            <input type="number" id="sec" value="60">
+            <span style="font-size: 1.2rem; font-weight: bold;">秒</span>
+        </div>
+        <div class="btn-grid">
+            <button class="btn-timer" onclick="socket.emit('start_timer', document.getElementById('sec').value)">▶ カウント開始</button>
+            <button class="btn-reset" onclick="socket.emit('reset_timer', document.getElementById('sec').value)">🔄 リセット</button>
+        </div>
     </div>
 
-    <div class="panel">
-        <h3>3. 正解判定（チェック＝◯ / 未チェック＝✕）</h3>
-        <div class="judge-box" id="judge-container">
+    <div class="section">
+        <div class="section-title">◯✕判定（チェックした人を正解にする）</div>
+        <div class="judge-grid" id="judge-ui">
             </div>
-        <button onclick="applyJudge()" style="background:#ff5252; color:white; width:90%;">判定を一斉適用！</button>
+        <button class="btn-open" style="background: var(--danger); font-size: 1.1rem; padding: 15px;" onclick="applyJudge()">判定を確定して表示！</button>
     </div>
 
-    <div class="panel">
-        <button onclick="socket.emit('clear_all')" style="background:#333; color:white; width:90%;">全員分を全消去して次へ</button>
+    <div class="section" style="background: #fdf2f2;">
+        <div class="section-title" style="color: #c62828;">メンテナンス</div>
+        <div class="btn-grid">
+            <button class="btn-clear" onclick="confirmClear()">🧹 全回答を全消去して次問へ</button>
+        </div>
     </div>
+</div>
 
-    <script src="/socket.io/socket.io.js"></script>
-    <script>
-        const socket = io();
-        const container = document.getElementById('judge-container');
-        for(let i=0; i<6; i++) {
-            container.innerHTML += `<div class="check-item"><label>${i+1}番 <input type="checkbox" class="judge-chk" data-idx="${i}"></label></div>`;
-        }
+<script src="/socket.io/socket.io.js"></script>
+<script>
+    const socket = io();
+    const judgeUI = document.getElementById('judge-ui');
 
-        function applyJudge() {
-            const results = Array(6).fill(false);
-            document.querySelectorAll('.judge-chk').forEach(chk => {
-                if(chk.checked) results[chk.dataset.idx] = true;
-            });
-            socket.emit('judge', results);
+    // 1-6番の判定スイッチ生成
+    for(let i=0; i<6; i++) {
+        judgeUI.innerHTML += `
+            <div class="judge-item" onclick="toggleCheck(${i})">
+                <span>${i+1}番</span>
+                <input type="checkbox" class="judge-chk" data-idx="${i}" id="chk-${i}" onclick="event.stopPropagation()">
+            </div>
+        `;
+    }
+
+    function toggleCheck(i) {
+        const chk = document.getElementById(`chk-${i}`);
+        chk.checked = !chk.checked;
+    }
+
+    function applyJudge() {
+        const results = Array(6).fill(false);
+        document.querySelectorAll('.judge-chk').forEach(chk => {
+            if(chk.checked) results[chk.dataset.idx] = true;
+        });
+        socket.emit('judge', results);
+    }
+
+    function confirmClear() {
+        if(confirm("全員の回答が消去されます。次の問題に進みますか？")) {
+            // チェックボックスもリセット
+            document.querySelectorAll('.judge-chk').forEach(chk => chk.checked = false);
+            socket.emit('clear_all');
         }
-    </script>
+    }
+
+    // サーバーからのタイマー同期
+    socket.on('timer_update', t => {
+        // 必要に応じて管理画面のタイマー数値も同期させる場合はここに
+    });
+</script>
+
 </body>
 </html>
