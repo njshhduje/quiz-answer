@@ -17,7 +17,7 @@ io.on('connection', (socket) => {
     socket.emit('init_state', { isLocked, isVisible, timerValue });
 
     socket.on('join', (data) => {
-        const index = Object.keys(users).length % 6; 
+        const index = data.index !== undefined ? data.index : Object.keys(users).length % 6;
         users[socket.id] = { name: data.name, index: index };
         socket.emit('assigned', { index: index });
         io.emit('update_users', users);
@@ -27,25 +27,14 @@ io.on('connection', (socket) => {
         if (!isLocked) io.emit('render', { index: data.index, image: data.image });
     });
 
-    socket.on('set_lock', (locked) => {
-        isLocked = locked;
-        io.emit('lock_update', isLocked);
-    });
-
-    socket.on('set_visibility', (visible) => {
-        isVisible = visible;
-        io.emit('visibility_update', isVisible);
-    });
-
-    socket.on('clear_specific', (index) => {
-        io.emit('render', { index: parseInt(index), image: null });
-        io.emit('remote_clear', parseInt(index));
-    });
-
-    socket.on('clear_all', () => {
-        for(let i=0; i<6; i++) {
-            io.emit('render', { index: i, image: null });
-            io.emit('remote_clear', i);
+    socket.on('set_lock', (l) => { isLocked = l; io.emit('lock_update', l); });
+    socket.on('set_visibility', (v) => { 
+        isVisible = v; 
+        io.emit('visibility_update', v); 
+        // 「隠す」が押された（vがfalse）ならロック解除
+        if (!v) {
+            isLocked = false;
+            io.emit('lock_update', false);
         }
     });
 
@@ -54,9 +43,33 @@ io.on('connection', (socket) => {
         timerValue = duration;
         io.emit('timer_update', timerValue);
         timerInterval = setInterval(() => {
-            if (timerValue > 0) { timerValue--; io.emit('timer_update', timerValue); }
-            else { clearInterval(timerInterval); }
+            if (timerValue > 0) {
+                timerValue--;
+                io.emit('timer_update', timerValue);
+            } else {
+                clearInterval(timerInterval);
+                // タイマー終了時に自動ロック
+                isLocked = true;
+                io.emit('lock_update', true);
+                io.emit('timer_finished');
+            }
         }, 1000);
+    });
+
+    socket.on('reset_timer', (duration) => {
+        clearInterval(timerInterval);
+        timerValue = duration;
+        io.emit('timer_update', timerValue);
+    });
+
+    socket.on('judge', (results) => { io.emit('judge_results', results); });
+
+    socket.on('clear_all', () => {
+        for(let i=0; i<6; i++) {
+            io.emit('render', { index: i, image: null });
+            io.emit('remote_clear', i);
+        }
+        io.emit('judge_results', Array(6).fill(null)); // 判定もリセット
     });
 
     socket.on('disconnect', () => {
@@ -65,5 +78,4 @@ io.on('connection', (socket) => {
     });
 });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(process.env.PORT || 3000);
