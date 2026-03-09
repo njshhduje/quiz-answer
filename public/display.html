@@ -2,32 +2,88 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>モニター - Quiz</title>
+    <title>クイズモニター</title>
     <style>
-        body { margin: 0; background: #1a1a1a; color: white; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; }
-        header { padding: 10px 30px; display: flex; justify-content: space-between; align-items: center; background: #333; }
-        #timer { font-size: 3.5rem; color: #ffeb3b; }
-        #grid { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); gap: 15px; flex-grow: 1; padding: 15px; }
-        .card { background: white; border-radius: 10px; position: relative; overflow: hidden; display: flex; flex-direction: column; }
-        .name-tag { background: #444; color: white; text-align: center; padding: 5px; font-size: 1.5rem; }
-        .ans-img { flex-grow: 1; width: 100%; object-fit: contain; background: white; }
-        .mask { position: absolute; inset: 40px 0 0 0; background: #444; display: flex; justify-content: center; align-items: center; font-size: 5rem; z-index: 5; transition: 0.5s; }
-        .hidden { opacity: 0; pointer-events: none; }
+        body { margin: 0; background: #1a1a1a; font-family: 'Helvetica Neue', Arial, sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        header { height: 80px; background: #333; display: flex; justify-content: space-between; align-items: center; padding: 0 40px; color: white; border-bottom: 4px solid #444; }
+        #timer { font-size: 4rem; color: #ffeb3b; font-weight: bold; font-family: monospace; }
+        #grid { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); gap: 20px; flex-grow: 1; padding: 20px; background: #222; }
+        
+        .card { background: white; border-radius: 15px; position: relative; display: flex; flex-direction: column; overflow: hidden; border: 5px solid #444; transition: 0.3s; }
+        /* 正解・不正解時の背景色変更 */
+        .card.correct { background: #ffcccc; border-color: #ff5252; }
+        .card.incorrect { background: #cce5ff; border-color: #448aff; }
+
+        .name-tag { background: #444; color: white; text-align: center; padding: 10px; font-size: 1.8rem; font-weight: bold; }
+        .canvas-wrap { flex-grow: 1; position: relative; }
+        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+
+        /* ◯✕表示 */
+        .judge-mark { position: absolute; inset: 0; display: flex; justify-content: center; align-items: center; font-size: 15rem; font-weight: bold; z-index: 30; pointer-events: none; display: none; }
+        .correct .judge-mark.maru { display: flex; color: #ff5252; }
+        .incorrect .judge-mark.batsu { display: flex; color: #448aff; }
+
+        .mask { position: absolute; inset: 0; background: #333; color: white; display: flex; justify-content: center; align-items: center; font-size: 8rem; z-index: 20; transition: 0.5s; }
+        .hidden { opacity: 0; visibility: hidden; }
     </style>
 </head>
 <body>
-    <header><div>QUIZ MONITOR</div><div id="timer">60</div></header>
+    <header><div style="font-size: 2.5rem;">QUIZ SYSTEM</div><div id="timer">60</div></header>
     <div id="grid"></div>
+
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
+        const grid = document.getElementById('grid');
+        const ctxs = [];
+
         for(let i=0; i<6; i++) {
-            document.getElementById('grid').innerHTML += `<div class="card"><div class="name-tag" id="n-${i}">${i+1}: 待機中</div><div class="mask" id="m-${i}">?</div><img id="i-${i}" class="ans-img"></div>`;
+            grid.innerHTML += `
+                <div class="card" id="card-${i}">
+                    <div class="name-tag" id="n-${i}">${i+1}: 待機中</div>
+                    <div class="canvas-wrap">
+                        <div class="mask" id="m-${i}">?</div>
+                        <div class="judge-mark maru">◯</div>
+                        <div class="judge-mark batsu">✕</div>
+                        <canvas id="c-${i}"></canvas>
+                    </div>
+                </div>`;
         }
+
+        window.onload = () => {
+            for(let i=0; i<6; i++) {
+                const cvs = document.getElementById(`c-${i}`);
+                cvs.width = cvs.offsetWidth; cvs.height = cvs.offsetHeight;
+                ctxs[i] = cvs.getContext('2d');
+                ctxs[i].lineWidth = 6; ctxs[i].lineCap = 'round';
+            }
+        };
+
+        socket.on('render', d => {
+            const ctx = ctxs[d.index];
+            const cvs = document.getElementById(`c-${d.index}`);
+            if(!d.image) ctx.clearRect(0,0,cvs.width,cvs.height);
+            else {
+                const img = new Image(); img.src = d.image;
+                img.onload = () => { ctx.clearRect(0,0,cvs.width,cvs.height); ctx.drawImage(img,0,0); };
+            }
+        });
+
+        socket.on('judge_results', (results) => {
+            results.forEach((res, i) => {
+                const card = document.getElementById(`card-${i}`);
+                card.className = 'card'; // リセット
+                if(res === true) card.classList.add('correct');
+                else if(res === false) card.classList.add('incorrect');
+            });
+        });
+
+        socket.on('visibility_update', v => {
+            for(let i=0; i<6; i++) document.getElementById(`m-${i}`).className = v ? 'mask hidden' : 'mask';
+        });
         socket.on('update_users', u => Object.values(u).forEach(user => document.getElementById(`n-${user.index}`).innerText = `${user.index+1}: ${user.name}`));
-        socket.on('render', d => document.getElementById(`i-${d.index}`).src = d.image || "");
         socket.on('timer_update', t => document.getElementById('timer').innerText = t);
-        socket.on('visibility_update', v => { for(let i=0; i<6; i++) document.getElementById(`m-${i}`).className = v ? 'mask hidden' : 'mask'; });
+        socket.on('remote_clear', i => { ctxs[i].clearRect(0, 0, 2000, 2000); });
     </script>
 </body>
 </html>
