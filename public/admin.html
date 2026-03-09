@@ -2,41 +2,59 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>管理者 - Quiz</title>
+    <title>管理者パネル</title>
     <style>
-        body { font-family: sans-serif; text-align: center; background: #f9f9f9; padding: 20px; }
-        .panel { background: white; border: 2px solid #ddd; border-radius: 15px; padding: 20px; margin-bottom: 20px; max-width: 500px; margin-left: auto; margin-right: auto; }
-        button { padding: 15px; margin: 5px; cursor: pointer; border: none; border-radius: 8px; font-weight: bold; width: 45%; }
-        .open-btn { background: #673ab7; color: white; width: 92%; font-size: 1.5rem; }
+        body { font-family: sans-serif; text-align: center; background: #f0f2f5; padding: 20px; }
+        .panel { background: white; border-radius: 12px; padding: 20px; margin: 10px auto; max-width: 600px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        button { padding: 12px 20px; margin: 5px; cursor: pointer; border: none; border-radius: 6px; font-weight: bold; }
+        .btn-main { background: #673ab7; color: white; width: 90%; font-size: 1.2rem; }
+        .judge-box { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 15px 0; }
+        .check-item { background: #eee; padding: 10px; border-radius: 8px; }
     </style>
 </head>
 <body>
-    <h1>Admin Panel</h1>
     <div class="panel">
-        <h3>1. 全体アクション</h3>
-        <button class="open-btn" onclick="socket.emit('set_visibility', true)">一斉オープン！</button><br>
-        <button onclick="socket.emit('set_visibility', false)">隠す</button>
-        <button onclick="socket.emit('set_lock', true)" style="background:red; color:white;">全員ロック</button>
-        <button onclick="socket.emit('set_lock', false)" style="background:green; color:white;">ロック解除</button>
+        <h3>1. 進行コントロール</h3>
+        <button class="btn-main" onclick="socket.emit('set_visibility', true)">一斉オープン！</button>
+        <button onclick="socket.emit('set_visibility', false)">隠す & ロック解除</button>
+        <hr>
+        <button onclick="socket.emit('set_lock', true)" style="background:#f44336; color:white;">手動ロック</button>
+        <button onclick="socket.emit('set_lock', false)" style="background:#4CAF50; color:white;">手動解除</button>
     </div>
+
     <div class="panel">
         <h3>2. タイマー</h3>
         <input type="number" id="sec" value="60" style="font-size:1.5rem; width:80px;"> 秒
-        <button onclick="socket.emit('start_timer', document.getElementById('sec').value)" style="background:#2196F3; color:white;">開始</button>
+        <button onclick="socket.emit('start_timer', document.getElementById('sec').value)" style="background:#2196F3; color:white;">スタート</button>
+        <button onclick="socket.emit('reset_timer', document.getElementById('sec').value)" style="background:#757575; color:white;">リセット</button>
     </div>
+
     <div class="panel">
-        <h3>3. 個別/全消去</h3>
-        <button onclick="socket.emit('clear_all')" style="background:#000; color:white; width:92%;">全員分を全消去</button>
-        <div style="display:grid; grid-template-columns:repeat(3,1fr); margin-top:10px;">
-            <button onclick="socket.emit('clear_specific', 0)">1消去</button>
-            <button onclick="socket.emit('clear_specific', 1)">2消去</button>
-            <button onclick="socket.emit('clear_specific', 2)">3消去</button>
-            <button onclick="socket.emit('clear_specific', 3)">4消去</button>
-            <button onclick="socket.emit('clear_specific', 4)">5消去</button>
-            <button onclick="socket.emit('clear_specific', 5)">6消去</button>
-        </div>
+        <h3>3. 正解判定（チェック＝◯ / 未チェック＝✕）</h3>
+        <div class="judge-box" id="judge-container">
+            </div>
+        <button onclick="applyJudge()" style="background:#ff5252; color:white; width:90%;">判定を一斉適用！</button>
     </div>
+
+    <div class="panel">
+        <button onclick="socket.emit('clear_all')" style="background:#333; color:white; width:90%;">全員分を全消去して次へ</button>
+    </div>
+
     <script src="/socket.io/socket.io.js"></script>
-    <script>const socket = io();</script>
+    <script>
+        const socket = io();
+        const container = document.getElementById('judge-container');
+        for(let i=0; i<6; i++) {
+            container.innerHTML += `<div class="check-item"><label>${i+1}番 <input type="checkbox" class="judge-chk" data-idx="${i}"></label></div>`;
+        }
+
+        function applyJudge() {
+            const results = Array(6).fill(false);
+            document.querySelectorAll('.judge-chk').forEach(chk => {
+                if(chk.checked) results[chk.dataset.idx] = true;
+            });
+            socket.emit('judge', results);
+        }
+    </script>
 </body>
 </html>
