@@ -2,22 +2,44 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>モニター</title>
+    <title>QUIZ MONITOR</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@900&display=swap" rel="stylesheet">
     <style>
-        body { margin: 0; background: #222; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; }
-        #grid { display: grid; grid-template-columns: repeat(3, 2fr); grid-template-rows: repeat(2, 1fr); gap: 15px; flex-grow: 1; padding: 15px; }
-        .card { background: white; border-radius: 10px; position: relative; display: flex; flex-direction: column; border: 4px solid #444; }
-        .card.correct { border-color: red; background: #ffebeb; }
-        .card.incorrect { border-color: blue; background: #ebebff; }
-        .name { background: #444; color: white; text-align: center; padding: 10px; font-size: 1.5rem; }
-        .img-layer { flex-grow: 1; width: 100%; object-fit: contain; }
-        .mask { position: absolute; inset: 0; background: #333; color: white; display: flex; justify-content: center; align-items: center; font-size: 5rem; z-index: 10; }
-        .hidden { display: none; }
-        .mark { position: absolute; inset: 0; display: flex; justify-content: center; align-items: center; font-size: 10rem; opacity: 0.8; pointer-events: none; }
+        :root { --gold: #ffeb3b; --red: #ff3d00; --blue: #2979ff; --panel: #333; }
+        body { margin: 0; background: #121212; font-family: 'Noto Sans JP', sans-serif; height: 100vh; display: flex; flex-direction: column; color: white; }
+        
+        header { height: 100px; background: linear-gradient(180deg, #444, #222); display: flex; justify-content: space-between; align-items: center; padding: 0 50px; border-bottom: 5px solid var(--gold); box-shadow: 0 5px 20px rgba(0,0,0,0.5); }
+        .logo { font-size: 3rem; font-style: italic; text-shadow: 3px 3px 0px #000; }
+        #timer { font-size: 5rem; color: var(--gold); text-shadow: 0 0 15px rgba(255,235,59,0.5); font-family: 'Courier New', monospace; }
+
+        #grid { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); gap: 20px; flex-grow: 1; padding: 25px; box-sizing: border-box; }
+        
+        .card { background: #fff; border-radius: 20px; position: relative; display: flex; flex-direction: column; border: 8px solid #444; box-shadow: 0 10px 0px #000; transition: transform 0.2s; overflow: hidden; }
+        .card.correct { border-color: var(--red); box-shadow: 0 10px 0px #b21a00; transform: scale(1.02); }
+        .card.incorrect { border-color: var(--blue); box-shadow: 0 10px 0px #004ecb; }
+
+        .name-banner { background: #444; color: white; text-align: center; padding: 10px; font-size: 2rem; border-bottom: 4px solid #333; }
+        .correct .name-banner { background: var(--red); }
+        .incorrect .name-banner { background: var(--blue); }
+
+        .image-container { flex-grow: 1; position: relative; background: #fff; display: flex; justify-content: center; align-items: center; }
+        .img-layer { max-width: 95%; max-height: 95%; object-fit: contain; z-index: 1; }
+        
+        .mask { position: absolute; inset: 0; background: radial-gradient(circle, #666, #222); color: #888; display: flex; justify-content: center; align-items: center; font-size: 8rem; z-index: 10; font-weight: 100; transition: 0.5s; }
+        .hidden { opacity: 0; visibility: hidden; transform: scale(1.5); }
+
+        .mark-overlay { position: absolute; inset: 0; display: flex; justify-content: center; align-items: center; font-size: 18rem; z-index: 20; opacity: 0; pointer-events: none; transition: 0.3s; }
+        .correct .mark-overlay { opacity: 0.9; color: var(--red); }
+        .incorrect .mark-overlay { opacity: 0.9; color: var(--blue); }
     </style>
 </head>
 <body>
+    <header>
+        <div class="logo">QUIZ CHAMPION</div>
+        <div id="timer">60</div>
+    </header>
     <div id="grid"></div>
+
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
@@ -25,10 +47,12 @@
         for(let i=0; i<6; i++) {
             grid.innerHTML += `
                 <div class="card" id="card-${i}">
-                    <div class="name" id="n-${i}">${i+1}: 待機中</div>
-                    <div class="mask" id="m-${i}">?</div>
-                    <div class="mark" id="mark-${i}"></div>
-                    <img id="i-${i}" class="img-layer">
+                    <div class="name-banner" id="n-${i}">${i+1}: WAITING...</div>
+                    <div class="image-container">
+                        <div class="mask" id="m-${i}">?</div>
+                        <div class="mark-overlay" id="mark-${i}"></div>
+                        <img id="i-${i}" class="img-layer">
+                    </div>
                 </div>`;
         }
 
@@ -39,13 +63,13 @@
 
         socket.on('update_users', u => {
             Object.values(u).forEach(user => {
-                const nameTag = document.getElementById(`n-${user.index}`);
-                if(nameTag) nameTag.innerText = `${user.index+1}: ${user.name}`;
+                const tag = document.getElementById(`n-${user.index}`);
+                if(tag) tag.innerText = user.name;
             });
         });
 
         socket.on('visibility_update', v => {
-            for(let i=0; i<6; i++) document.getElementById(`m-${i}`).className = v ? 'hidden' : 'mask';
+            for(let i=0; i<6; i++) document.getElementById(`m-${i}`).className = v ? 'mask hidden' : 'mask';
         });
 
         socket.on('judge_results', res => {
@@ -53,13 +77,17 @@
                 const card = document.getElementById(`card-${i}`);
                 const mark = document.getElementById(`mark-${i}`);
                 card.className = 'card'; mark.innerText = '';
-                if(r === true) { card.classList.add('correct'); mark.innerText = '◯'; mark.style.color = 'red'; }
-                if(r === false) { card.classList.add('incorrect'); mark.innerText = '✕'; mark.style.color = 'blue'; }
+                if(r === true) { card.classList.add('correct'); mark.innerText = '◯'; }
+                if(r === false) { card.classList.add('incorrect'); mark.innerText = '✕'; }
             });
         });
 
+        socket.on('timer_update', t => document.getElementById('timer').innerText = t);
         socket.on('remote_clear_all', () => {
-            for(let i=0; i<6; i++) document.getElementById(`i-${i}`).src = "";
+            for(let i=0; i<6; i++) {
+                document.getElementById(`i-${i}`).src = "";
+                document.getElementById(`card-${i}`).className = 'card';
+            }
         });
     </script>
 </body>
