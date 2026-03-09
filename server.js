@@ -14,28 +14,36 @@ let timerValue = 60;
 let timerInterval = null;
 
 io.on('connection', (socket) => {
+    // 接続時に最新状態を同期
     socket.emit('init_state', { isLocked, isVisible, timerValue });
 
     socket.on('join', (data) => {
-        const index = data.index !== undefined ? data.index : Object.keys(users).length % 6;
-        users[socket.id] = { name: data.name, index: index };
-        socket.emit('assigned', { index: index });
+        // indexが指定されていればそれを使う（display用）、なければ空き番号か連番
+        let targetIndex = data.index;
+        if (targetIndex === undefined) {
+            targetIndex = Object.keys(users).length % 6;
+        }
+        users[socket.id] = { name: data.name, index: targetIndex };
+        
+        // 重要：本人に確定したindexを伝える
+        socket.emit('assigned', { index: targetIndex });
+        // 全員にユーザーリストを更新
         io.emit('update_users', users);
     });
 
     socket.on('draw', (data) => {
-        if (!isLocked) io.emit('render', { index: data.index, image: data.image });
+        // indexが正しく送られてきている場合のみ、全員（display含む）に描画を転送
+        if (!isLocked && data.index !== null) {
+            io.emit('render', { index: data.index, image: data.image });
+        }
     });
 
     socket.on('set_lock', (l) => { isLocked = l; io.emit('lock_update', l); });
+    
     socket.on('set_visibility', (v) => { 
         isVisible = v; 
         io.emit('visibility_update', v); 
-        // 「隠す」が押された（vがfalse）ならロック解除
-        if (!v) {
-            isLocked = false;
-            io.emit('lock_update', false);
-        }
+        if (!v) { isLocked = false; io.emit('lock_update', false); }
     });
 
     socket.on('start_timer', (duration) => {
@@ -48,10 +56,8 @@ io.on('connection', (socket) => {
                 io.emit('timer_update', timerValue);
             } else {
                 clearInterval(timerInterval);
-                // タイマー終了時に自動ロック
                 isLocked = true;
                 io.emit('lock_update', true);
-                io.emit('timer_finished');
             }
         }, 1000);
     });
@@ -65,11 +71,8 @@ io.on('connection', (socket) => {
     socket.on('judge', (results) => { io.emit('judge_results', results); });
 
     socket.on('clear_all', () => {
-        for(let i=0; i<6; i++) {
-            io.emit('render', { index: i, image: null });
-            io.emit('remote_clear', i);
-        }
-        io.emit('judge_results', Array(6).fill(null)); // 判定もリセット
+        io.emit('remote_clear_all');
+        io.emit('judge_results', Array(6).fill(null));
     });
 
     socket.on('disconnect', () => {
